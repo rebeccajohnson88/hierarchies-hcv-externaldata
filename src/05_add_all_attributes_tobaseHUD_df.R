@@ -7,8 +7,12 @@
 # Constants
 GRAPH_DIR <- here("output/")
 RAW_DIR <- here("data/raw/")
-INTERMEDIATE_DIR = here("data/intermediate/") 
+INTERMEDIATE_DIR <- here("data/intermediate/") 
+PULL_NONPROFIT <- FALSE
 
+# Source others
+source(here("src/utils.R"))
+source(here("src/helperfunc_nonprofitdata.R"))
 
 ###########################################################################
 ## Load different input data sources
@@ -17,6 +21,9 @@ INTERMEDIATE_DIR = here("data/intermediate/")
 # PHA point location data that contains universe of PHAs
 phas_gdp <- sf::st_read(dsn = 
         here(RAW_DIR, "PHA_gdb/PHAs.gdb"))
+colnames(phas_gdp) = sprintf("HUD_%s",
+                             colnames(phas_gdp))
+
 
 # Raw ACS counts of people in diff categories
 phas_rawACScounts = readRDS(here(INTERMEDIATE_DIR, "phas_wrawACScounts_longernames_20221216.RDS"))
@@ -110,14 +117,14 @@ acs_wcoc <- merge(acs_countbyPHA,
 ###########################################################################
 
 # Load data
-hai_vars = read.csv(here(RAW_DIR,
+hai_vars <- read.csv(here(RAW_DIR,
                 'HAI_map_201014.csv'))
 
 # Add suffix to colnames
-hai_vars_addsuffix = sprintf("URBANINST_hai20102014_%s",
+hai_vars_addsuffix <- sprintf("URBANINST_hai20102014_%s",
                   colnames(hai_vars))
 
-colnames(hai_vars) = hai_vars_addsuffix
+colnames(hai_vars) <- hai_vars_addsuffix
 
 # these data are merged later in script
 
@@ -126,13 +133,10 @@ colnames(hai_vars) = hai_vars_addsuffix
 ## Clean county-level election results to prepare to merge
 ###########################################################################
 
-election_raw_new = read.csv(here(RAW_DIR, "countypres_2000-2016.csv"))
-
-### stopped here
-
+election_raw <- read.csv(here(RAW_DIR, "countypres_2000-2016.csv"))
 
 ## subset to 2016 and merge onto main data
-election_raw_bycounty  = election_raw_new %>%
+election_raw_bycounty  <- election_raw %>%
           filter(year %in% c(2012, 2016)) %>%
           dplyr::select(state, FIPS, candidatevotes, 
                         totalvotes, 
@@ -143,15 +147,14 @@ election_raw_bycounty  = election_raw_new %>%
                   party, year)) %>%
           dplyr::select(-party, -year)
 
-election_bycounty_wide_init = reshape(election_raw_bycounty,
+election_bycounty_wide_init <- reshape(election_raw_bycounty,
                                  idvar = c("state", "FIPS"),
                                  timevar = c("party_year"), 
                                  direction = "wide", 
                                  sep = "_") 
 
-
 ## get percs
-election_recent = election_bycounty_wide_init %>%
+election_recent <- election_bycounty_wide_init %>%
             mutate(dem_2012 = candidatevotes_democrat_2012/totalvotes_democrat_2012,
                    dem_2016 = candidatevotes_democrat_2016/totalvotes_democrat_2016,
                    repub_2012 = 
@@ -161,7 +164,7 @@ candidatevotes_republican_2016/totalvotes_republican_2016) %>%
           dplyr::select(-contains("votes"))
 
 ## get state level aggregation
-election_recent_statelevel = election_bycounty_wide_init %>%
+election_recent_statelevel <- election_bycounty_wide_init %>%
           group_by(state) %>%
           dplyr::select(-FIPS) %>% 
           summarise_if(is.numeric, mean, na.rm = TRUE) %>%
@@ -172,26 +175,28 @@ candidatevotes_republican_2012/totalvotes_republican_2012,
                 repub_2016 = 
 candidatevotes_republican_2016/totalvotes_republican_2016) %>%
           dplyr::select(-contains("votes")) %>%
-          left_join(election_raw_new %>%
+          left_join(election_raw %>%
                 dplyr::select(state, state_po) %>%
                 filter(!duplicated(state)),
                 by = "state")
           
 
+###########################################################################
+## Clean rurality data to merge
+###########################################################################
 
+# Read in data
+ruca <- read_xlsx(here(RAW_DIR, "ruca2010revised.xlsx"))
 
-
-## -------------------------------------------------------------------------------------------------------------------------------------------
-ruca = read_xlsx(sprintf("%s/ruca2010revised.xlsx",
-                        RAWDATA_DIR))
-
-ruca_df = ruca %>%
+# First row is colname and second row is data; subset
+ruca_df <- ruca %>%
   slice(2:nrow(ruca))
+ruca_colnames <- ruca[1, ]
 
-ruca_colnames = ruca[1, ]
+# Clean up colnames
+colnames(ruca_df) <- gsub("\\_+$", "", gsub("\\s+|Code.*|\\-", "_", ruca_colnames))
 
-colnames(ruca_df) = gsub("\\_+$", "", gsub("\\s+|Code.*|\\-", "_", ruca_colnames))
-
+# Prep for merge
 ruca_df_tomerge = ruca_df %>%
               mutate(urban = ifelse(Primary_RUCA %in% seq(from = 1, to = 3),
                               1, 0),
@@ -201,119 +206,91 @@ ruca_df_tomerge = ruca_df %>%
                             Primary_RUCA, urban, rural)  
 
 ## aggregate to percentage of tracts 
-## a pha overlaps with that are classified as each type
-## merge with pha by tract info
-pha_by_tract = phas_rawACScounts %>% dplyr::select(GEOID, PARTICIPAN) 
+# a pha overlaps with that are classified as each type
+#  merge with pha by tract info
+pha_by_tract <- phas_rawACScounts %>% dplyr::select(GEOID, PARTICIPAN) 
 sprintf("Of the %s tracts that overlap with PHAs, %s have ruca codes",
         length(unique(pha_by_tract$GEOID)),
         length(intersect(unique(pha_by_tract$GEOID), unique(ruca_df_tomerge$State_County_Tract_FIPS))))
-pha_by_tract_wruca = merge(pha_by_tract, 
+pha_by_tract_wruca <- merge(pha_by_tract, 
                            ruca_df_tomerge,
                            all.x = TRUE, 
                            by.x = "GEOID",
                            by.y = "State_County_Tract_FIPS")
 
-## calculate percents
-pha_ruca_perc = pha_by_tract_wruca %>%
+## calculate percent- just do perc_tract_urban
+pha_ruca_perc <- pha_by_tract_wruca %>%
             group_by(PARTICIPAN) %>%
-            summarise(perc_tracts_urban = mean(urban, na.rm = TRUE), 
-                      perc_tracts_rural = mean(rural, na.rm = TRUE)) 
+            summarise(perc_tracts_urban = mean(urban, na.rm = TRUE)) 
             
 
 
+###########################################################################
+## Clean nonprofit density data 
+###########################################################################
 
 
-## -------------------------------------------------------------------------------------------------------------------------------------------
-## get data
-## commented out bc takes awhile
-#core2015pc = getcorefile(2015, "pc")
-#core2015pf = getcorefile(2015, "pf")
-#core2015co = getcorefile(2015, "co")
-#saveRDS(core2015pc, 
- #       sprintf("%s/core2015pc.RDS", 
-            #    rawdata_dir))
-#saveRDS(core2015pf, 
-      #  sprintf("%s/core2015pf.RDS", 
-       #         rawdata_dir))
-# saveRDS(core2015co, 
-     #   sprintf("%s/core2015co.RDS", 
-     #           rawdata_dir))
-
-
-clean_select_nccs <- function(data, which_type){
-  
-  ## filter out outside of scope outside of ors
-  ## and select vars of interest
-  df_touse = data %>% filter(OUTNCCS == "IN") %>% #apply recommended filter to in-scope
-              mutate(which_type = which_type) %>%
-              dplyr::select(EIN, CENSUSTRACT, 
-                            NTEECC)
-  return(df_touse)
-  
+## warning- getcorefile from Urban Institute function deprecated; see intermediate directory for the files
+if(PULL_NONPROFIT){
+  core2015pc = getcorefile(2015, "pc")
+  core2015pf = getcorefile(2015, "pf")
+  core2015co = getcorefile(2015, "co")
+  saveRDS(core2015pc, here(INTERMEDIATE_DIR,"core2015pc.RDS"))
+  saveRDS(core2015pf,  here(INTERMEDIATE_DIR,"core2015pf.RDS"))
+  saveRDS(core2015pf,  here(INTERMEDIATE_DIR,"core2015co.RDS"))
+} else{
+  core2015pc <- readRDS(here(INTERMEDIATE_DIR,"core2015pc.RDS"))
+  core2015pf <- readRDS(here(INTERMEDIATE_DIR,"core2015pf.RDS"))
+  core2015co <- readRDS(here(INTERMEDIATE_DIR,"core2015co.RDS"))
 }
 
-## read in data from RDS files
-nccs_core_pc = readRDS(sprintf("%s/core2015pc.RDS",
-                               RAWDATA_DIR))
+# Store three datasets in list
+all_nccs <- list(pc = core2015pc, pf = core2015pf, 
+                other = core2015co)
 
-nccs_core_pf = readRDS(sprintf("%s/core2015pf.RDS",
-                               RAWDATA_DIR))
-
-
-nccs_core_other = readRDS(sprintf("%s/core2015co.RDS",
-                               RAWDATA_DIR))
-
-
-nccs_core_pc %>% filter(CENSUSTRACT == "34027042200") %>%
-        dplyr::select(NAME, CITY)
-## apply function then row bind
-all_nccs = list(pc = nccs_core_pc, pf = nccs_core_pf, 
-                other = nccs_core_other)
-
-names(all_nccs)[1]
-
-## 
-cleaned_nccs = list()
+# Iterate and clean the datasets
+cleaned_nccs <- list()
 for(i in 1:length(all_nccs)){
   
-  which_type = names(all_nccs)[1]
-  cleaned_nccs[[i]] = clean_select_nccs(all_nccs[[i]], which_type = which_type)
+  which_type <- names(all_nccs)[1]
+  cleaned_nccs[[i]] <- clean_select_nccs(all_nccs[[i]], which_type = which_type)
 
 }
 
-cleaned_nccs_all = do.call(rbind.data.frame, cleaned_nccs) 
+
+# Rbind back together
+cleaned_nccs_all <- do.call(rbind.data.frame, cleaned_nccs) 
 
 
+# See that there are more rows than unique eins, so filter out
+# duplicates for the three columns we're using (tract; ein; nteecc code)
 sprintf("There are %s rows in the NCCS data, and %s unique ids",
         nrow(cleaned_nccs_all),
         length(unique(cleaned_nccs_all$EIN)))
-
-
-## see that there are more, so filter out for duplicates on the three cols we're using (tract; ein; nteecc code)
-cleaned_nccs_dedup = cleaned_nccs_all %>%
+cleaned_nccs_dedup <- cleaned_nccs_all %>%
                 distinct(EIN, CENSUSTRACT, NTEECC, .keep_all = TRUE)
 
 
-## code ntee codes into different types
-sharkey_arts_notiv = c("A23", "A25", "A27")
-sharkey_crime = c("I20", "I21", "F42", "I31", "I40",
+# Create vectors for diff types of NTEE codes
+sharkey_arts_notiv <- c("A23", "A25", "A27")
+sharkey_crime <- c("I20", "I21", "F42", "I31", "I40",
                   "I43", "I44")
-sharkey_neighbdev = c("L25", "L30", "L80", 
+sharkey_neighbdev <- c("L25", "L30", "L80", 
                       "L81", "P28",
                       paste("S", 20:22, sep = ""),
                       paste("S", 30:31, sep = ""))
 
-sharkey_substance = paste("F", 20:22, sep = "")
-sharkey_workforce = c("J22", "J30")
-sharkey_youthdev = c("N60",  
+sharkey_substance <- paste("F", 20:22, sep = "")
+sharkey_workforce <- c("J22", "J30")
+sharkey_youthdev <- c("N60",  
                      paste("O", 20:23, sep = ""),
                      "O30", "O31", "O40",
                      paste("O", 50:55, sep = ""), 
                      "P27", "P30")
 homelessness <- c("L41", "L99", "P85")
 
-## code with dummy binaries
-cleaned_nccs_dedup = cleaned_nccs_dedup %>%
+# Create dummy indicators
+cleaned_nccs_dedup <- cleaned_nccs_dedup %>%
             mutate(ncee_first_letter = str_extract(NTEECC, "^[A-Z]"),
                    ncee_decile_code = str_extract(NTEECC, "^[A-Z][0-9][0-9]"),
                    sharkey_arts_iv = ifelse(ncee_first_letter %in% 
@@ -333,138 +310,104 @@ cleaned_nccs_dedup = cleaned_nccs_dedup %>%
                               c("I", "J", "K", "L", "M", "N", "O", "P"), 1, 0),
                   homelessness = ifelse(ncee_decile_code %in% homelessness, 1, 0))
 
-
-
-
-## aggregate to tract level
-dummy_vars = grep("sharkey|human|homelessness", colnames(cleaned_nccs_dedup), value = TRUE)
-cleaned_nccs_forsummary = cleaned_nccs_dedup[, c("EIN",
+# Aggregate from organization-tract dyad level to tract level to find
+# organizations by tract
+dummy_vars <- grep("sharkey|human|homelessness", colnames(cleaned_nccs_dedup), value = TRUE)
+cleaned_nccs_forsummary <- cleaned_nccs_dedup[, c("EIN",
                                                  "CENSUSTRACT",
                                                  dummy_vars)] %>%
                           reshape2::melt(, id.vars = c("EIN", "CENSUSTRACT")) %>%
                           rename(type_nonprof = variable)
-
-## test for one (commented out)
-#one_tract = "34027042200"
-#cleaned_nccs_forsummary %>% filter(CENSUSTRACT == one_tract)
-
-nonprofit_tract_summary = cleaned_nccs_forsummary %>%
+nonprofit_tract_summary <- cleaned_nccs_forsummary %>%
                   filter(CENSUSTRACT != "None" & !is.na(CENSUSTRACT)) %>%
                   group_by(CENSUSTRACT, type_nonprof) %>%
                   summarise(total_nonprof = sum(value)) %>%
                   ungroup() 
-
-nonprofit_tract_summary_wide = dcast(nonprofit_tract_summary, CENSUSTRACT ~ type_nonprof, 
+nonprofit_tract_summary_wide <- reshape2::dcast(nonprofit_tract_summary, CENSUSTRACT ~ type_nonprof, 
                                      value.var = "total_nonprof")
 
-
-### create dataframe with:
-## tracts in pha data but not in
-## nonprofit data
-## these tracts weren't found so count as having zero
-tracts_notin_nccs = setdiff(unique(pha_by_tract$GEOID), 
+# Create dataframe with tracts in PHA data but that don't have any
+# organizations in the nonprofit data so that these count as having 0 orgs
+tracts_notin_nccs <- setdiff(unique(pha_by_tract$GEOID), 
                             nonprofit_tract_summary$CENSUSTRACT)
 
 
-npsummary_cols = setdiff(colnames(nonprofit_tract_summary_wide), "CENSUSTRACT")
-notracts_cols = data.frame(matrix(ncol = length(npsummary_cols),
+npsummary_cols <- setdiff(colnames(nonprofit_tract_summary_wide), "CENSUSTRACT")
+notracts_cols <- data.frame(matrix(ncol = length(npsummary_cols),
                                   nrow = 1, rep(0, length(npsummary_cols))))
-colnames(notracts_cols) = npsummary_cols 
-nonprofit_tract_summary_zero = cbind.data.frame(data.frame(CENSUSTRACT = as.character(tracts_notin_nccs)),
+colnames(notracts_cols) <- npsummary_cols 
+nonprofit_tract_summary_zero <- cbind.data.frame(data.frame(CENSUSTRACT = as.character(tracts_notin_nccs)),
                             notracts_cols)
-
-## rowbind
-nonprofit_tract_summary_tomerge = rbind.data.frame(nonprofit_tract_summary_wide, 
+nonprofit_tract_summary_tomerge <- rbind.data.frame(nonprofit_tract_summary_wide, 
                                                    nonprofit_tract_summary_zero)
 
-## merge with tract, pha, and pop density in tract
-pha_by_tract_wpop = phas_rawACScounts %>% dplyr::select(GEOID, PARTICIPAN) 
-
-## merge with nonprofit tract summary
-pha_wnonprofit_tractlevel = merge(pha_by_tract_wpop,
+# Merge with other information --- still at tract level
+pha_by_tract_wpop <- phas_rawACScounts %>% dplyr::select(GEOID, PARTICIPAN) 
+pha_wnonprofit_tractlevel <- merge(pha_by_tract_wpop,
                                   nonprofit_tract_summary_tomerge, 
                                   by.x = "GEOID",
                                   by.y = "CENSUSTRACT",
                                   all.x = TRUE)
 
-## two measure of pha level:
-## total count
-## average density per 100 tract residents across tracts within pha
-nonprofit_vars = grep("sharkey|human|homelessness", colnames(pha_wnonprofit_tractlevel), value = TRUE)
-count_vars = nonprofit_vars 
+# Aggregate from tract -> PHA level by finding average density per 1000 residents in poverty
+nonprofit_vars <- grep("sharkey|human|homelessness", colnames(pha_wnonprofit_tractlevel), value = TRUE)
+count_vars <- nonprofit_vars 
 
-### first way to aggregate tracts to pha: sum of nonprofits
-pha_wnonprofit_phalevel_sum = pha_wnonprofit_tractlevel %>%
+# For both measures, first find sum of organizations aggregating from tract -> PHA level
+# this serves as the numerator
+pha_wnonprofit_phalevel_sum <- pha_wnonprofit_tractlevel %>%
                       group_by(PARTICIPAN) %>%
                       summarise_at(all_of(count_vars),
-                                   funs(sum)) %>%
+                                   list(sum = sum)) %>%
                       ungroup() # statewide sums all tracts
 colnames(pha_wnonprofit_phalevel_sum) = c("PARTICIPAN",
                                       sprintf("%s_sum", count_vars))
 
-
-## merge with base data on number of units
-
+# Second- find denominator in terms of people <= 100% federal poverty line
+# and merge it on
 base_tomerge = as.data.frame(phas_gdp) %>%
-            mutate(hud_char = as.character(HUD_COUNTY_LEVEL),
-              hud_county_tomerge = ifelse(HUD_PARTICIPANT_CODE == "NJ114",
-                                    "34023",
-                          hud_char)) # manually replace pha missing
+  mutate(hud_char = as.character(HUD_COUNTY_LEVEL),
+         hud_county_tomerge = ifelse(HUD_PARTICIPANT_CODE == "NJ114",
+                                     "34023",
+                                     hud_char)) # manually replace pha missing its county
+pha_wnonprofit_denom <- merge(base_tomerge %>%
+                                dplyr::select(HUD_PARTICIPANT_CODE, 
+                                              HUD_PHA_TOTAL_UNITS),
+                              pha_wnonprofit_phalevel_sum, 
+                              by.x = "HUD_PARTICIPANT_CODE",
+                              by.y  = "PARTICIPAN",
+                              all.x = TRUE) %>%
+                    left_join(acs_countbyPHA %>% dplyr::select(PARTICIPAN,
+                                 B06012_002_Below_100_percent_of_the_poverty_level_acscount),
+                          by = c('HUD_PARTICIPANT_CODE' = 'PARTICIPAN')) %>%
+                    rename(count_100percfpl_below = B06012_002_Below_100_percent_of_the_poverty_level_acscount)
 
-
-pha_wnonprofit_phalevel_sum_wunits = merge(base_tomerge %>%
-                                  dplyr::select(HUD_PARTICIPANT_CODE, 
-                                  HUD_PHA_TOTAL_UNITS),
-                                  pha_wnonprofit_phalevel_sum, 
-                                  by.x = "HUD_PARTICIPANT_CODE",
-                                  by.y  = "PARTICIPAN",
-                                  all.x = TRUE) %>%
-                  mutate(denom_nonprofits_HUDunits = ifelse(HUD_PHA_TOTAL_UNITS == 0, 
-                                                  NA, 
-                                                  HUD_PHA_TOTAL_UNITS)) %>%
-                  left_join(acs_countbyPHA %>% dplyr::select(PARTICIPAN,
-                       B06012_002_Below_100_percent_of_the_poverty_level_acscount),
-                        by = c('HUD_PARTICIPANT_CODE' = 'PARTICIPAN')) %>%
-                  rename(count_100percfpl_below = B06012_002_Below_100_percent_of_the_poverty_level_acscount)
-
-nonprofit_vars_fordens = grep("sum", colnames(pha_wnonprofit_phalevel_sum_wunits),
+# Third, for each of the nonprofit variables, divide by that count of residents
+# in poverty and multiply result by 1000 to get the rate per 1000 residents
+nonprofit_vars_fordens <- grep("sum", colnames(pha_wnonprofit_phalevel_sum),
                               value = TRUE)
-
-## dens of nonprofits per 100 units
-## (undefined for those with 0)
-nonprofit_dens_byunits = pha_wnonprofit_phalevel_sum_wunits %>%
-                    mutate_at(all_of(nonprofit_vars_fordens),
-                              funs(./denom_nonprofits_HUDunits))
-                                
-colnames(nonprofit_dens_byunits) = gsub("\\_sum",
-                                        "\\_densper_100_PHAunits", colnames(nonprofit_dens_byunits))
-
-### do similar using other denom of those <100% of FPL
-nonprofit_dens_bypov = pha_wnonprofit_phalevel_sum_wunits %>%
+nonprofit_dens_bypov <- pha_wnonprofit_denom %>%
                     mutate_at(all_of(nonprofit_vars_fordens),
                               funs((./count_100percfpl_below)*1000))
-                                
 colnames(nonprofit_dens_bypov) = gsub("\\_sum",
                                         "\\_densper_1000_inpov", colnames(nonprofit_dens_bypov))
-## bind back with pha-level data
-pha_wnonprofit_tomerge = merge(pha_wnonprofit_phalevel_sum_wunits,
-                            nonprofit_dens_byunits %>%
-                          dplyr::select(-denom_nonprofits_HUDunits, -HUD_PHA_TOTAL_UNITS, -count_100percfpl_below),
-                          by = "HUD_PARTICIPANT_CODE") %>%
-                        left_join(nonprofit_dens_bypov %>%
-                          dplyr::select(-denom_nonprofits_HUDunits, -HUD_PHA_TOTAL_UNITS, -count_100percfpl_below),
-                          by = "HUD_PARTICIPANT_CODE") %>%
-                        mutate(state = str_extract(HUD_PARTICIPANT_CODE, 
+
+# Fourth, merge back with pha-level data
+pha_wnonprofit_tomerge = pha_wnonprofit_phalevel_sum %>%
+                        left_join(nonprofit_dens_bypov,
+                          by = c("PARTICIPAN" = "HUD_PARTICIPANT_CODE")) %>%
+                        mutate(state = str_extract(PARTICIPAN, 
                                                   "[A-Z][A-Z]")) 
-## visualize correlation
-## see that density of human services orgs
-## and community orgs is highly correlated
-corr_state = pha_wnonprofit_tomerge %>%
-          group_by(state) %>%
-          summarise(mean_commorg = mean(sharkey_commorg_densper_100_PHAunits, na.rm = TRUE),
-                    mean_hs = mean(human_services_densper_100_PHAunits, na.rm = TRUE))
 
+##########################################################################
+## Add variables from HUD voucher management system
+###########################################################################
 
+# todo: move over from script 05 
+
+###########################################################################
+## Merge all the datasets
+###########################################################################
 
 
 ## -------------------------------------------------------------------------------------------------------------------------------------------

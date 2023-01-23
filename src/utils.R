@@ -10,6 +10,7 @@ library(stargazer)
 library(readr)
 library(data.table)
 library(readxl)
+library(httr)
 
 ### Spatial
 library(rgdal)

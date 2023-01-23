@@ -1,5 +1,20 @@
 
 
+
+
+clean_select_nccs <- function(data, which_type){
+  
+  ## filter out outside of scope outside of ors
+  ## and select vars of interest
+  df_touse = data %>% filter(OUTNCCS == "IN") %>% #apply recommended filter to in-scope
+    mutate(which_type = which_type) %>%
+    dplyr::select(EIN, CENSUSTRACT, 
+                  NTEECC)
+  return(df_touse)
+  
+}
+
+
 #The following function will download and prepare NCCS Core Files for analysis.
 #The function requires the following fields:
 #     year: year of data (as of this writing, available years include 1989-2015 for most data sets)
@@ -8,7 +23,7 @@
 #           "pf" = 501(c)(3) private foundations
 #           "co" = all other 501(c) organizations
 
-
+# From here: https://nccs.urban.org/sites/default/files/2018-10/Prep%20NCCS%20Core%20File_1.R
 #Create function to download core files
 getcorefile <- function(coreyear, coretype) {
   #ensure coretype is lowercase
