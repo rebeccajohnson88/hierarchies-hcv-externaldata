@@ -1,14 +1,13 @@
-
-
-
 # 05_add_all_attributes_tobaseHUD_df
 # Merge and clean different PHA-level characteristics
+# Outputs: pha_wlocalattributes_final.[csv|RDS]
 
 # Constants
 GRAPH_DIR <- here("output/")
 RAW_DIR <- here("data/raw/")
 INTERMEDIATE_DIR <- here("data/intermediate/") 
 PULL_NONPROFIT <- FALSE
+WRITE_NEW_INTERMEDIATE_FILES <- FALSE
 
 # Source others
 source(here("src/utils.R"))
@@ -393,94 +392,87 @@ colnames(nonprofit_dens_bypov) = gsub("\\_sum",
                                         "\\_densper_1000_inpov", colnames(nonprofit_dens_bypov))
 
 # Fourth, merge back with pha-level data
-pha_wnonprofit_tomerge = pha_wnonprofit_phalevel_sum %>%
+pha_wnonprofit_wrates = pha_wnonprofit_phalevel_sum %>%
                         left_join(nonprofit_dens_bypov,
                           by = c("PARTICIPAN" = "HUD_PARTICIPANT_CODE")) %>%
                         mutate(state = str_extract(PARTICIPAN, 
                                                   "[A-Z][A-Z]")) 
 
-##########################################################################
-## Add variables from HUD voucher management system
+# Fifth, restrict to variables needed to merge + used
+# in analysis
+pha_wnonprofit_tomerge <- pha_wnonprofit_wrates %>% dplyr::select(PARTICIPAN,
+                          sharkey_commorg_densper_1000_inpov, 
+                          human_services_densper_1000_inpov)
+
+###########################################################################
+## Merge these PHA context datasets
+## Script 06 will merge those with the others 
 ###########################################################################
 
-# todo: move over from script 05 
-
-###########################################################################
-## Merge all the datasets
-###########################################################################
-
-
-## -------------------------------------------------------------------------------------------------------------------------------------------
-## left join base hud data with acs demographics
-pha_wdem = merge(base_tomerge,
-                 acs_wpsh_wnearestatt_wcoc,
+# Left join base of PHAs to ACS data that has
+# coc information merged on 
+pha_wdem <- merge(base_tomerge,
+                 acs_wcoc,
                  by.x = "HUD_PARTICIPANT_CODE",
                  by.y = "PARTICIPAN",
                  all.x = TRUE)
 
 
-## left join ruca
-pha_wruca = merge(pha_wdem, 
+# Left join RUCA
+pha_wruca <- merge(pha_wdem, 
                   pha_ruca_perc,
                   by.x = "HUD_PARTICIPANT_CODE",
                   by.y = "PARTICIPAN",
                   all.x = TRUE)
 
 
-## left join nonprofit dens
-pha_wnonprofit = merge(pha_wruca, 
-                       pha_wnonprofit_tomerge %>% dplyr::select(-state), # remove since just used to summarize
+# Left join nonprofit dens
+pha_wnonprofit <- merge(pha_wruca, 
+                       pha_wnonprofit_tomerge %>% rename(HUD_PARTICIPANT_CODE = PARTICIPAN),
                        by = "HUD_PARTICIPANT_CODE",
                        all.x = TRUE)
 
-
-
-
-## -------------------------------------------------------------------------------------------------------------------------------------------
-
-## left join that with county-level HAI
-intersect_hai = intersect(pha_wdem$hud_county_tomerge,
-                          hai_vars$URBANINST_hai20102014_county)
-
-pha_whai = merge(pha_wnonprofit,
+# Left join county-level housing affordability
+pha_whai <- merge(pha_wnonprofit,
                  hai_vars,
                  by.x = "hud_county_tomerge",
                  by.y = "URBANINST_hai20102014_county",
                  all.x = TRUE)
 
 
-## for election merging, add
-## indicator for state-level pha
-pha_whai = pha_whai %>%
-              mutate(statelevel = ifelse(grepl("^[A-Z][A-Z]9",
-                            HUD_PARTICIPANT_CODE), 1, 0)) 
+# To prep for merging on elections data
+# at either county or state level, merge on
+# indicator for whether local or state PHA
+pha_whai <- pha_whai %>%
+              mutate(statelevel = grepl("^[A-Z][A-Z]9", HUD_PARTICIPANT_CODE))
 
-pha_statewide = pha_whai %>%
-        filter(statelevel == 1) %>%
+pha_statewide <- pha_whai %>%
+        filter(statelevel) %>%
         mutate(state_po = gsub("9[0-9][0-9]", "",
                                HUD_PARTICIPANT_CODE))
 
-pha_county = pha_whai %>%
-      filter(statelevel == 0) 
+pha_county <- pha_whai %>%
+      filter(!statelevel) 
 
 
-pha_statewide_welect = merge(pha_statewide,
+# Merge on statewide results
+pha_statewide_welect <- merge(pha_statewide,
                              election_recent_statelevel,
                              by = "state_po",
                              all.x = TRUE) %>%
                     dplyr::select(-state_po) #remove join var
 
-missing_2016 = pha_statewide_welect %>%
+# Check missingness, only guam, PR, and other territories
+missing_2016 <- pha_statewide_welect %>%
             filter(is.na(dem_2016))
-
 sprintf("Of the %s statewide PHAs, %s are missing 2016 election info, those are: %s",
         length(unique(pha_statewide_welect$HUD_PARTICIPANT_CODE)),
         length(unique(missing_2016$HUD_PARTICIPANT_CODE)),
         paste(missing_2016$HUD_FORMAL_PARTICIPANT_NAME, 
               collapse = ";"))
 
-
-pha_county_welect = merge(pha_county,
+# Left join county-level results
+pha_county_welect <- merge(pha_county,
           election_recent %>%
           mutate(hud_county_tomerge = str_pad(FIPS, 5,
                                 side = "left", "0")) %>%
@@ -488,9 +480,10 @@ pha_county_welect = merge(pha_county,
                              by = "hud_county_tomerge",
                              all.x = TRUE)
 
-missing_2016_county = pha_county_welect %>%
+missing_2016_county <- pha_county_welect %>%
             filter(is.na(dem_2016))
 
+# See again that it's territories missing them
 sprintf("Of the %s non-statewide PHAs, %s are missing 2016 election info, those are: %s",
         length(unique(pha_county_welect$HUD_PARTICIPANT_CODE)),
         length(unique(missing_2016_county$HUD_PARTICIPANT_CODE)),
@@ -498,39 +491,22 @@ sprintf("Of the %s non-statewide PHAs, %s are missing 2016 election info, those 
               collapse = ";"))
 
 
-## rowbind state and county
-pha_welections = rbind.data.frame(pha_statewide_welect,
+# Rowbind state and county
+pha_welections <- rbind.data.frame(pha_statewide_welect,
                                   pha_county_welect)
 
 
-## make sure works
+###########################################################################
+## Write the results to intermediate
+###########################################################################
 
+# Before writing, confirm no PHAs lost in joins
+stopifnot(nrow(pha_welections) == nrow(phas_gdp))
 
-if(nrow(pha_welections) == nrow(phas_gdp)){
-  
-  print("Preserved all PHAs from base data")
-  
-} else {
-  
-  print("Lost some PHAs in the merge process")
+# Write 
+if(WRITE_NEW_INTERMEDIATE_FILES){
+  saveRDS(pha_welections, 
+          here(INTERMEDIATE_DIR, "pha_wlocalattributes_final.RDS"))
+  fwrite(pha_welections,
+         here(INTERMEDIATE_DIR, "pha_wlocalattributes_final.csv"))
 }
-  
-
-
-
-## -------------------------------------------------------------------------------------------------------------------------------------------
-
-View(pha_welections %>% select(HUD_PARTICIPANT_CODE, contains("derived")))
-
-
-saveRDS(pha_welections,
-        sprintf("%s%s",
-          BASE_DIR,
-          "Data/Cleaned/pha_wlocalattributes_20221216.RDS"))
-
-fwrite(pha_welections,
-        sprintf("%s%s",
-          BASE_DIR,
-          "Data/Cleaned/pha_wlocalattributes_20221216.csv"))
-
-

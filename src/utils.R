@@ -11,6 +11,7 @@ library(readr)
 library(data.table)
 library(readxl)
 library(httr)
+library(haven)
 
 ### Spatial
 library(rgdal)
