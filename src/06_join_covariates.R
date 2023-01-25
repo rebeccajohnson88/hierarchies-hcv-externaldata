@@ -5,6 +5,7 @@
 # 3) variables from external sources created in script 05
 
 # Source others
+library(here)
 source(here("src/utils.R"))
 
 ###########################################################################
@@ -86,26 +87,6 @@ pha_hud <- pha_pop %>%
             hud_count_all_units = pha_total_units,
             hud_geo_fips_state = state2kx) 
 
-###############################
-## Load data from Abt        ##
-## homelessness survey       ##
-###############################
-# Load Abt survey data
-abt <- read_sas(here("data/raw/abt_survey_completes.sas7bdat")) %>%
-  # Filter out Puerto Rico, Guam, Virgin Islands
-  filter(!(str_sub(HA_CODE, 1, 2) %in% c("RQ", "GQ", "VQ", "TQ"))) %>%
-  select(HA_CODE, A2_1) %>%
-  transmute(pha_code = HA_CODE,
-            # Create flag for whether Abt survey indicates PHA had preferences
-            abt_any_preferences = ifelse(A2_1 == 1, 1, 0)) %>%
-  # Make formatting of AK001/AK901 entry consistent wit others
-  filter(!str_detect(pha_code, "/")) %>%
-  bind_rows(data.frame(pha_code = c("AK001", "AK901"),
-                       abt_any_preferences = c(0,0)))
-
-# Join to dataframe 
-pha_hud <- pha_hud %>% 
-  left_join(abt, by = "pha_code")
 
 #################################
 ## Load external PHA context data  ##
@@ -145,5 +126,27 @@ pha_all <- pha_hud %>%
   left_join(pha_spatial_tojoin, by = "pha_code") %>%
   left_join(census_regions, by = c("hud_geo_fips_state" = "state_code"))
 
-saveRDS(pha_all, here("data/cleaned/pha_all_streamlined.RDS"))
+# Filtering
+pha_all_filtered <- pha_all %>% dplyr::select(pha_code, pha_name,
+            hud_med_month_vouchers, 
+            hud_count_all_units,
+            derived_acs_not_hispanic_or_latinowhite_alone_percent, 
+            derived_acs_not_hispanic_or_latinoblack_or_african_american_alone_percent, 
+            derived_acs_not_hispanic_or_latinoasian_alone_percent,
+            derived_acs_hisp_any_perc, derived_acs_veteran_percent, 
+            derived_acs_below_100_percent_of_the_poverty_level_percent, 
+            derived_acs_in_the_labor_forceunemployed_percent,
+            derived_acs_living_in_household_with_supplemental_security_income_ssi_cash_public_assistance_income_or_food_stampssnap_in_the_past_12_months_percent,
+            derived_median_hh_income, derived_median_rental_burden,
+            derived_acs_renter_occupied_percent, derived_acs_vacant_percent,
+            perc_tracts_urban, 
+            urban_affordable_noassist_per100, 
+            urban_affordable_per100, 
+            sharkey_commorg_densper_1000_inpov, 
+            human_services_densper_1000_inpov, 
+            repub_2016, census_region, coc_category_noimpute)
+
+
+
+saveRDS(pha_all_filtered, here("data/cleaned/pha_all_streamlined.RDS"))
 
