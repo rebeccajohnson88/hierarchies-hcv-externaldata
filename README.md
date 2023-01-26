@@ -40,7 +40,6 @@ Available in this Dropbox folder: [add link]
     - `data/intermediate/phas_foroverlap.RDS`
 
 - [01_spatialmerge_loopcode.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/01_spatialmerge_loopcode.R)
-
   - Takes in:
     - `data/intermediate/tracts_foroverlap.RDS`
     - `data/intermediate/phas_foroverlap.RDS`
@@ -48,7 +47,15 @@ Available in this Dropbox folder: [add link]
   - Outputs:
     - `data/intermediate/PHA_tract_bystate/[{State code}]_intersects.RDS`
     
-- [02_pull_census_tractlevel.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/02_pull_census_tractlevel.R)
+- [02_spatialmerge_CoC.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/02_spatialmerge_CoC.R)
+  - Takes in:
+    - `data/raw/PHA_gdb/PHAs.gdb`
+    - `data/raw/Continuum_of_Care_(CoC)_Grantee_Areas/`: shapefiles of CoC grantees
+  - What it does: for each PHA, finds CoC that it intersects with
+  - Outputs:
+    - `data/intermediate/phapoint_coc_intersect.RDS`
+    
+- [03_pull_census_tractlevel.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/03_pull_census_tractlevel.R)
   - Takes in:
     - Spatial data from `data/intermediate/PHA_tract_bystate/[{State code}]_intersects.RDS`
     - `creds.yaml` file containing Census API key
@@ -56,18 +63,26 @@ Available in this Dropbox folder: [add link]
   - Outputs:
     - `data/intermediate/phas_wrawACScounts_longernames_20221216.RDS`: a PHA-tract dyad level dataset with counts of people in different demographic categories/raw values for attributes like median household income
 
-- [03_add_all_attributes_tobaseHUD_df.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/03_add_all_attributes_tobaseHUD_df.R)
+- [04_add_all_attributes_tobaseHUD_df.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/04_add_all_attributes_tobaseHUD_df.R)
   - Takes in:
-    - `data/intermediate/phas_wrawACScounts_longernames_20221216.RDS`
-    - `data/intermediate/phapoint_coc_intersect.RDS`
     - `data/raw/HAI_map_201014.csv`
     - `data/raw/countypres_2000-2016.csv`
     - `data/raw/ruca2010revised.xlsx`
+    - `data/intermediate/phas_wrawACScounts_longernames_20221216.RDS`
+    - `data/intermediate/phapoint_coc_intersect.RDS`
   - What it does: reads in, cleans, and merges the contextual attributes of PHAs. See online supplement for more discussion.
   - Outputs: 
     - `data/intermediate/pha_wlocalattributes_final.RDS`
     
-
+- [05_join_covariates.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/05_join_covariates.R)
+  - Takes in:
+    - `data/raw/reviewed_codes.RDS`: preference data - see paper + online supplement for description of coding
+    - `data/raw/VMS_{}`: voucher management system data from HUD
+    - `data/raw/a00000009.gdbtable`: housing authority characteristics from HUD
+    - `data/intermediate/pha_wlocalattributes_final.RDS`
+  - What it does: merges data sources together
+  - Outputs:
+    - `data/cleaned/pha_all.[RDS|csv]`
 
 ### Helper scripts sourced by above
 
