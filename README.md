@@ -54,7 +54,19 @@ Available in this Dropbox folder: [add link]
     - `creds.yaml` file containing Census API key
   - What it does: specifies demographic variables to pull from the ACS 5-year estimates, uses the `get_ACS()` function in [tidycensus](https://github.com/walkerke/tidycensus/blob/master/man/get_acs.Rd) to pull tract-level counts, uses the ACS codebook to rename those estimated counts, and merges them back onto data at the PHA-tract dyad level (since one PHA can intersect with 1+ tracts)
   - Outputs:
-    - `phas_wrawACScounts_longernames_20221216.RDS`: a PHA-tract dyad level dataset with counts of people in different demographic categories/raw values for attributes like median household income
+    - `data/intermediate/phas_wrawACScounts_longernames_20221216.RDS`: a PHA-tract dyad level dataset with counts of people in different demographic categories/raw values for attributes like median household income
+
+- [03_add_all_attributes_tobaseHUD_df.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/03_add_all_attributes_tobaseHUD_df.R)
+  - Takes in:
+    - `data/intermediate/phas_wrawACScounts_longernames_20221216.RDS`
+    - `data/intermediate/phapoint_coc_intersect.RDS`
+    - `data/raw/HAI_map_201014.csv`
+    - `data/raw/countypres_2000-2016.csv`
+    - `data/raw/ruca2010revised.xlsx`
+  - What it does: reads in, cleans, and merges the contextual attributes of PHAs. See online supplement for more discussion.
+  - Outputs: 
+    - `data/intermediate/pha_wlocalattributes_final.RDS`
+    
 
 
 ### Helper scripts sourced by above
