@@ -19,7 +19,8 @@ Available in this Dropbox folder: [add link]
 
 ## Code 
 
-`src/` run in order:
+### Scripts to be run in order
+
 - [00a_pulltract_shapefiles.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/00a_pulltract_shapefiles.R)
 
   - Takes in:
@@ -28,4 +29,17 @@ Available in this Dropbox folder: [add link]
   - Outputs:
     - `data/intermediate/tracts_sf_format.RDS`: tract polygons stored in [sf](https://cran.r-project.org/web/packages/sf/index.html) format
 
+- [00b_pha_tract_merge.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/00b_pha_tract_merge.R)
+
+  - Takes in:
+    - `data/intermediate/tracts_sf_format.RDS`
+    - `data/raw/Estimated_Housing_Authority_Service_Areas`
+  - What it does: restricts tract shapefiles and PHA shapefiles to polygons in same states
+  - Outputs:
+    - `data/intermediate/tracts_foroverlap.RDS`
+    - `data/intermediate/phas_foroverlap.RDS`
+
+
+
+### Helper scripts sourced by above
 
