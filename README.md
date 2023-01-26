@@ -86,3 +86,6 @@ Available in this Dropbox folder: [add link]
 
 ### Helper scripts sourced by above
 
+- [utils.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/utils.R)
+- [helperfunc_nonprofitdata.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/helperfunc_nonprofitdata.R)
+
