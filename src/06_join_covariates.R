@@ -147,6 +147,11 @@ pha_all_filtered <- pha_all %>% dplyr::select(pha_code, pha_name,
             repub_2016, census_region, coc_category_noimpute)
 
 
-
-saveRDS(pha_all_filtered, here("data/cleaned/pha_all_streamlined.RDS"))
+## write to both repo-specific directory
+## and to the replication archive 
+### repo-specific cleaned folder
+saveRDS(pha_all_filtered, here("data/cleaned/pha_all.RDS"))
+### replication archive 
+saveRDS(pha_all_filtered, here("../EligibilityPaper/PreferenceInference/hcv_replication/data/pha_all.RDS"))
+fwrite(pha_all_filtered, here("../EligibilityPaper/PreferenceInference/hcv_replication/data/pha_all.csv"))
 
