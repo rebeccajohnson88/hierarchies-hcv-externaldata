@@ -99,32 +99,38 @@ stopifnot(length(unique(vars_topull)) == length(vars_topull))
 ###########################################################################
 
 
-creds = read_yaml(here("PreferenceInference/my_cred_testingV2.yaml"))
+## Load your own creds file here 
+creds = read_yaml(here("creds.yaml"))
 census_api_key(creds$census_api$api_key)
 
 
+## States to pull
 us <- unique(fips_codes$state)[1:51]
 pull_all_tracts = lapply(us,  function(x) get_acs(geography = "tract",
                                                   variables = vars_topull,
                                                   state = x,
                                                   year = 2016))
-
-
 ## save copy 
 saveRDS(pull_all_tracts,
-        here("PreferenceInference/Data/Raw/spatial_derivedobjs/all_tracts_longernames_20221216.RDS"))
+        here("data/intermediate/all_tracts_longernames_20221216.RDS"))
 
 ## if reading in
-READ_TRACTS = FALSE
+READ_TRACTS = TRUE
 if(READ_TRACTS){
-  pull_all_tracts = readRDS(here("PreferenceInference/Data/Raw/spatial_derivedobjs/all_tracts_longernames_20221216.RDS"))
+  pull_all_tracts = readRDS(here("data/intermediate/all_tracts_longernames_20221216.RDS"))
 }
 
 pull_all_tracts_df = do.call(rbind.data.frame,
                              pull_all_tracts)
 
 
-####  RENAME ACS VARS
+
+###########################################################################
+## Use the codebook to rename the ACS variables
+###########################################################################
+acs_vars = load_variables(2016,
+                          "acs5", cache = TRUE)
+
 vars_pulled = rbind.data.frame(acs_vars %>%
   filter(name %in% vars_topull) %>%
   mutate(cl1 = gsub("Estimate!!Total:(!!)?",
@@ -153,10 +159,13 @@ pull_tracts_wnames = merge(pull_all_tracts_df,
 colnames(pull_tracts_wnames) = sprintf("%s_acscount",
                                        colnames(pull_tracts_wnames))
 
-fwrite(pull_tracts_wnames, here("PreferenceInference/Data/Intermediate/acs_20122016_tractcounts_longernames_20221216.csv"))
+###########################################################################
+## Merge back with PHAs to create PHA-tract dyad level data (note PHAs are 
+## repeated across all intersecting tracts)
+###########################################################################
 
 ####  Merge w/ pha code data
-get_geoid_pcode <- function(x, path =  here("PreferenceInference/Data/Intermediate/PHA_tract_bystate/")){
+get_geoid_pcode <- function(x, path =  here("data/intermediate/PHA_tract_bystate/")){
   
   data_loaded = readRDS(sprintf("%s%s", path, x))
   data_return = as.data.frame(data_loaded %>% dplyr::select(PARTICIPAN, 
@@ -185,9 +194,14 @@ tracts_wdem = merge(tracts_wphacode,
                     by.y = "GEOID_acscount",
                     all.x = TRUE)
 
+###########################################################################
+## Write the result
+###########################################################################
+
 ## store in spatial obs
 saveRDS(tracts_wdem,
-        here("PreferenceInference/Data/Intermediate/phas_wrawACScounts_longernames_20221216.RDS"))
+        here("data/intermediate/phas_wrawACScounts_longernames_20221216.RDS"))
+
 
 
 
