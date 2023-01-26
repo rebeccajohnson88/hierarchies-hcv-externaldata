@@ -39,6 +39,14 @@ Available in this Dropbox folder: [add link]
     - `data/intermediate/tracts_foroverlap.RDS`
     - `data/intermediate/phas_foroverlap.RDS`
 
+- [01_spatialmerge_loopcode.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/01_spatialmerge_loopcode.R)
+
+  - Takes in:
+    - `data/intermediate/tracts_foroverlap.RDS`
+    - `data/intermediate/phas_foroverlap.RDS`
+  - What it does: iterates over state and finds the spatial intersection between the tract polygon and the PHA service area polygon; writes each state's output separately due to file sizes 
+  - Outputs:
+    - `data/intermediate/PHA_tract_bystate/[State code]_intersects.RDS`
 
 
 ### Helper scripts sourced by above
