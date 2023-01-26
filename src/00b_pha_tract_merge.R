@@ -1,5 +1,3 @@
-
-
 # 00_pulltract_shapefiles.R
 # Pull shapefiles for the census tracts 
 
