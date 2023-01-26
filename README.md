@@ -15,7 +15,7 @@ Code for acquiring and cleaning the external data sources used to describe PHAs 
 
 ## Input data
 
-Available in this Dropbox folder: [add link]
+Files reference in `data/raw/` are available in [this Dropbox folder](https://www.dropbox.com/sh/kd0r5w9li1pmtl1/AAB0-zU9Hv8awOa0uhOViHSva?dl=0). Other files can be generated from those raw files using the scripts.
 
 ## Code 
 
