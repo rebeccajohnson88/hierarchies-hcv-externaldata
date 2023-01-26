@@ -46,7 +46,15 @@ Available in this Dropbox folder: [add link]
     - `data/intermediate/phas_foroverlap.RDS`
   - What it does: iterates over state and finds the spatial intersection between the tract polygon and the PHA service area polygon; writes each state's output separately due to file sizes 
   - Outputs:
-    - `data/intermediate/PHA_tract_bystate/[State code]_intersects.RDS`
+    - `data/intermediate/PHA_tract_bystate/[{State code}]_intersects.RDS`
+    
+- [02_pull_census_tractlevel.R](https://github.com/rebeccajohnson88/hierarchies-hcv-externaldata/blob/main/src/02_pull_census_tractlevel.R)
+  - Takes in:
+    - Spatial data from `data/intermediate/PHA_tract_bystate/[{State code}]_intersects.RDS`
+    - `creds.yaml` file containing Census API key
+  - What it does: specifies demographic variables to pull from the ACS 5-year estimates, uses the `get_ACS()` function in [tidycensus](https://github.com/walkerke/tidycensus/blob/master/man/get_acs.Rd) to pull tract-level counts, uses the ACS codebook to rename those estimated counts, and merges them back onto data at the PHA-tract dyad level (since one PHA can intersect with 1+ tracts)
+  - Outputs:
+    - `phas_wrawACScounts_longernames_20221216.RDS`: a PHA-tract dyad level dataset with counts of people in different demographic categories/raw values for attributes like median household income
 
 
 ### Helper scripts sourced by above
