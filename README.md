@@ -8,8 +8,8 @@ Code for acquiring and cleaning the external data sources used to describe PHAs 
 
 ## Authors
 
-- [Simone Zhang](https://simonezhang.com/)
-- [Rebecca A. Johnson](https://www.rebeccajohnson.io/)
+- [Simone Zhang](https://simonezhang.com/) [https://github.com/sxzh](https://github.com/sxzh)
+- [Rebecca A. Johnson](https://www.rebeccajohnson.io/) [https://github.com/rebeccajohnson88](https://github.com/rebeccajohnson88)
 
 ## Input data
 
