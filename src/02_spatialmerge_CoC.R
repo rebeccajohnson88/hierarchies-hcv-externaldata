@@ -11,11 +11,6 @@ options(tigris_use_cache = TRUE)
 # Read in data
 #######################################
 
-## read in PHA estimated service areas file
-pha_shapes = readRDS(here("data/intermediate/phas_foroverlap.RDS"))
-sprintf("There are %s unique PHAs in the estimated service area file",
-        length(unique(pha_shapes$PARTICIPAN)))
-
 ## read in PHA point locations 
 phas_gdp <- sf::st_read(dsn = here("data/raw/PHA_gdb/PHAs.gdb"))
 sprintf("There are %s PHAs in the universe",

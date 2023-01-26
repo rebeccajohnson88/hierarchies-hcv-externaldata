@@ -15,9 +15,6 @@ source(here("src/utils.R"))
 # Load coded preferences
 codes <- readRDS(here("data/raw/reviewed_codes.RDS"))
 
-# Load data on source of preference information 
-codes_sources <- read_csv(here("data/raw/all_codes_source_info.csv"))
-
 # Load HUD Voucher Management System reports 
 vms_fnames <- list.files(here("data/raw/"), pattern = "^VMS_")
 
