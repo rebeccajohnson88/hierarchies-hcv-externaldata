@@ -1,37 +1,17 @@
+# 02_pull_census_tractlevel.R
+# Pull demographic information about each tract from
+# Census API
 
-
-
-#### packages
-rm(list = ls())
-library(tigris)
-library(ggplot2)
-library(sf)
-library(tigris)
-library(tidyverse)
-library(gridExtra)
-library(cdlTools)
-library(stringr)
-library(tictoc)
-library(tidycensus)
-library(reshape2)
-library(readxl)
 library(here)
-library(data.table)
-library(here)
-library(yaml)
-
-
-#### constants
-PATH_DATA = "EligibilityPaper/PreferenceInference/Data"
-
-
+source(here("src/utils.R"))
 options(tigris_class = "sf")
 options(tigris_use_cache = TRUE)
 
+###########################################################################
+## Load tracts that intersect with 1+ PHA- get the tract GEOID
+###########################################################################
 
-####  Read in tract PHA intersections to get set of tracts to pull for
-
-get_geoid <- function(x, path = here("PreferenceInference/Data/Intermediate/PHA_tract_bystate/")){
+get_geoid <- function(x, path = here("data/intermediate/PHA_tract_bystate/")){
   
   data_loaded = readRDS(sprintf("%s%s", path, x))
   geoid = as.character(data_loaded$GEOID)
@@ -39,7 +19,7 @@ get_geoid <- function(x, path = here("PreferenceInference/Data/Intermediate/PHA_
 }
 
 
-all_tracts_df = list.files(path = here("PreferenceInference/Data/Intermediate/PHA_tract_bystate/"),
+all_tracts_df = list.files(path = here("data/intermediate/PHA_tract_bystate/"),
                            pattern = "intersects")
 tracts_df_list = lapply(all_tracts_df, get_geoid)
 tracts_df_list_df = lapply(tracts_df_list, function(x) data.frame(GEOID = x))
@@ -53,9 +33,11 @@ tracts_df = tracts_df %>%
                       "", 
                       rownames(tracts_df)))
 
-####  Pull ACS vars
-acs_vars = load_variables(2019,
-                          "acs5", cache = TRUE)
+###########################################################################
+## Specify the names of variables in the ACS 5-year estimates
+## to pull
+###########################################################################
+
 
 total_pop = c("B00001_001")
 race = c("B02001_001",
@@ -108,9 +90,13 @@ vars_topull = c(total_pop,
                 educ_vars, housing_status,
                 poverty, veteran)
 
+## double check that no variables are duplicated
 stopifnot(length(unique(vars_topull)) == length(vars_topull))
 
-View(acs_vars %>% filter(name %in% vars_topull))
+###########################################################################
+## Read in credentials for Census API and register key and
+## pull tract-level data 
+###########################################################################
 
 
 creds = read_yaml(here("PreferenceInference/my_cred_testingV2.yaml"))

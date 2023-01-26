@@ -2,6 +2,8 @@
 
 ## Packages
 library(here)
+library(tictoc)
+library(yaml)
 
 ### Data
 library(tidyverse)
@@ -12,6 +14,9 @@ library(data.table)
 library(readxl)
 library(httr)
 library(haven)
+library(data.table)
+library(reshape2)
+library(stringr)
 
 ### Spatial
 library(rgdal)
@@ -19,8 +24,7 @@ library(cdlTools)
 library(sf)
 library(tigris)
 library(sp)
-
-
+library(tidycensus)
 
 ## plotting theme
 theme_new <- function(base_size = 16, base_family = "Helvetica"){
@@ -34,3 +38,5 @@ theme_new <- function(base_size = 16, base_family = "Helvetica"){
       axis.text.y = element_text(color = "black")
     )
 }
+
+

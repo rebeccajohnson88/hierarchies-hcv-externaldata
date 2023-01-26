@@ -40,22 +40,3 @@ print("ended distance calc")
 saveRDS(distance_mat, 
     "/Users/raj2/Dropbox/EligibilityPaper/PreferenceInference/Data/Raw/spatial_derivedobjs/centroid_distance_mat.RDS")
 
-# dist_df = as.data.frame(distance_mat) %>%
-#         mutate(PARTICIPAN = rownames(distance_mat)) %>%
-#         reshape2::melt(, id.vars = "PARTICIPAN") %>%
-#         rename(other_pha = variable, 
-#                distance = value) %>%
-#         filter(!PARTICIPAN == other_pha) %>%
-#         arrange(PARTICIPAN, distance) %>%
-#         left_join(pha_nost %>% dplyr::select(PARTICIPAN, FORMAL_PAR) %>%
-#                         rename(name_focal_pha = FORMAL_PAR),
-#                   by = "PARTICIPAN") %>%
-#         left_join(pha_nost %>% dplyr::select(PARTICIPAN, FORMAL_PAR) %>%
-#                         rename(name_other_pha = FORMAL_PAR),
-#                   by = c("other_pha" = "PARTICIPAN")) %>%
-#         rename(geometry_focal = geometry.x,
-#                geometry_other = geometry.y)
-# 
-# 
-# fwrite(dist_df, "/Users/raj2/Dropbox/EligibilityPaper/PreferenceInference/Data/Raw/spatial_derivedobjs/pha_distance.csv")
-# print("wrote file")
